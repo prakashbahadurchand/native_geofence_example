@@ -9,6 +9,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:native_geofence/native_geofence.dart';
 import 'package:native_geofence_example/create_geofence.dart';
 
+import 'callback.dart';
 import 'notifications_repository.dart';
 
 void main() => runApp(MyApp());
@@ -31,6 +32,7 @@ class MyAppState extends State<MyApp> {
   void initState() {
     super.initState();
     unawaited(NotificationsRepository().init());
+    initializeNotifications();
     IsolateNameServer.registerPortWithName(
       port.sendPort,
       'native_geofence_send_port',
