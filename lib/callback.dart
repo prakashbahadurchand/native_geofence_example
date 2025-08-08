@@ -3,7 +3,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:audioplayers/audioplayers.dart';
+import 'package:just_audio/just_audio.dart';
 
 import 'package:native_geofence/native_geofence.dart';
 import 'package:native_geofence_example/notifications_repository.dart';
@@ -17,6 +17,9 @@ Future<void> geofenceTriggered(GeofenceCallbackParams params) async {
   final SendPort? send =
       IsolateNameServer.lookupPortByName('native_geofence_send_port');
   send?.send(params.event.name);
+
+  // Play audio based on geofence event
+  await _playGeofenceAudio(params.event);
 
   final notificationsRepository = NotificationsRepository();
   // TODO: Test to see what happens if we do not initialize the Notifications
@@ -35,6 +38,35 @@ Future<void> geofenceTriggered(GeofenceCallbackParams params) async {
   await notificationsRepository.showGeofenceTriggerNotification(title, message);
 
   await Future.delayed(const Duration(seconds: 1));
+}
+
+@pragma('vm:entry-point')
+Future<void> _playGeofenceAudio(GeofenceEvent event) async {
+  try {
+    final player = AudioPlayer();
+
+    // Configure for background playback
+    await player.setAudioSource(
+      event == GeofenceEvent.enter
+          ? AudioSource.asset('assets/audios/enter_sound.mp3')
+          : AudioSource.asset('assets/audios/exit_sound.mp3'),
+    );
+
+    // Play the audio
+    await player.play();
+
+    // Wait for audio to complete
+    await player.positionStream.firstWhere(
+      (position) => position >= (player.duration ?? Duration.zero),
+    );
+
+    // Dispose the player
+    await player.dispose();
+
+    debugPrint('Audio played for ${event.name} event');
+  } catch (e) {
+    debugPrint('Error playing audio: $e');
+  }
 }
 
 String capitalize(String text) {
@@ -94,7 +126,8 @@ Future<void> showGeofenceNotificationWithSoundUrl({
 }) async {
   // Play audio from URL
   final player = AudioPlayer();
-  await player.play(UrlSource(soundUrl));
+  player.setAudioSource(AudioSource.uri(Uri.parse(soundUrl)));
+  await player.play();
 
   // Show notification (no custom sound, just default)
   final AndroidNotificationDetails androidPlatformChannelSpecifics =
